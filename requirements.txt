@@ -1,0 +1,11 @@
+streamlit
+pandas
+numpy
+sentence-transformers
+torch
+scikit-learn
+ollama
+openpyxl
+oracledb
+plotly
+faiss-cpu
