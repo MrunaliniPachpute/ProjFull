@@ -9,7 +9,7 @@ class KnowledgeBase:
     def __init__(self):
 
         self.builder = ResolutionBuilder()
-        self.llm = LLMService()
+        # self.llm = LLMService()
 
     def build(self, complaints, acknowledgements):
 
@@ -24,9 +24,33 @@ class KnowledgeBase:
         resolved = resolved.drop_duplicates(
             subset="TICKET_NO"
         )
+        acks = acknowledgements.copy()
 
-        for _, row in resolved.iterrows():
+        acks["ASNO"] = (
+            acks["ASNO"]
+            .astype(str)
+            .str.strip()
+        )
 
+        acks["FLAG"] = (
+            acks["FLAG"]
+            .astype(str)
+            .str.strip()
+            .str.upper()
+        )
+
+        ack_groups = {
+            ticket: group
+            for ticket, group in acks.groupby("ASNO")
+        }
+        
+        total = len(resolved)
+        #for _, row in resolved.iterrows():
+
+        for i, (_, row) in enumerate(resolved.iterrows(), start=1):
+            if i % 100 == 0 or i == total:
+                print(f"Processed {i}/{total} tickets...")
+                
             ticket_no = str(row["TICKET_NO"]).strip()
 
             subject = str(
@@ -51,30 +75,30 @@ class KnowledgeBase:
 
             conversation = self.builder.build_resolution(
                 ticket_no,
-                acknowledgements
+                ack_groups
             )
 
             if conversation == "":
                 continue
 
-            try:
+            # try:
 
-                ai_resolution = self.llm.generate_resolution(
-                    subject,
-                    complaint,
-                    conversation
-                )
+            #     ai_resolution = self.llm.generate_resolution(
+            #         subject,
+            #         complaint,
+            #         conversation
+            #     )
 
-            except Exception:
+            # except Exception:
 
-                ai_resolution = ""
+            #     ai_resolution = ""
 
-            ai_resolution = str(
-                ai_resolution
-            ).strip()
+            # ai_resolution = str(
+            #     ai_resolution
+            # ).strip()
 
-            if ai_resolution == "":
-                continue
+            # if ai_resolution == "":
+            #     continue
 
             records.append({
 
@@ -85,7 +109,7 @@ class KnowledgeBase:
                 "department": department,
                 "status": status,
                 "conversation": conversation,
-                "ai_resolution": ai_resolution
+                # "ai_resolution": ai_resolution
 
             })
 
@@ -101,7 +125,6 @@ class KnowledgeBase:
                 "department",
                 "status",
                 "conversation",
-                "ai_resolution"
             ])
 
         kb = kb.drop_duplicates(

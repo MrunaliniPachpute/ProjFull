@@ -47,7 +47,7 @@ if kb.empty:
 kb = kb.dropna(
     subset=[
         "conversation",
-        "ai_resolution"
+        # "ai_resolution"
     ]
 )
 
@@ -55,9 +55,9 @@ kb = kb[
     kb["conversation"].astype(str).str.strip() != ""
 ]
 
-kb = kb[
-    kb["ai_resolution"].astype(str).str.strip() != ""
-]
+# kb = kb[
+#     kb["ai_resolution"].astype(str).str.strip() != ""
+# ]
 
 kb = kb.reset_index(drop=True)
 
@@ -91,8 +91,6 @@ Department:
 Conversation:
 {row['conversation']}
 
-Resolution:
-{row['ai_resolution']}
 """
 
     texts.append(text.strip())

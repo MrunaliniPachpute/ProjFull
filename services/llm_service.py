@@ -38,7 +38,7 @@ Rules:
   Clear...
   Replace...
 - If multiple actions were performed, combine them into one concise recommendation.
-- Maximum 120 characters.
+- Maximum 4 short sentences.
 - One sentence only.
 - No bullet points.
 - No markdown.
@@ -75,6 +75,10 @@ Previous Resolved Conversation:
                 ]
 
             )
+            
+            print("="*80)
+            print(response["message"]["content"])
+            print("="*80)
 
             answer = response["message"]["content"].strip()
 
@@ -93,9 +97,9 @@ Previous Resolved Conversation:
 
             answer = " ".join(answer.split())
 
-            if len(answer) > 120:
+            # if len(answer) > 120:
 
-                answer = answer[:120].rstrip()
+            #     answer = answer[:120].rstrip()
 
             if answer == "":
 

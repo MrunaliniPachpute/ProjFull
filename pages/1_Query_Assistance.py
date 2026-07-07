@@ -1,6 +1,7 @@
 import streamlit as st
 
 from services.semantic_search import SemanticSearch
+from services.llm_service import LLMService
 
 st.set_page_config(
     page_title="Query Assistance",
@@ -18,7 +19,9 @@ complaint = st.text_area(
     height=150
 )
 
-if st.button("Search Similar Complaints", width="stretch"):
+# ---------------- SEARCH ---------------- #
+
+if st.button("Search Similar Complaints", use_container_width=True):
 
     if subject.strip() == "" or complaint.strip() == "":
 
@@ -36,14 +39,25 @@ if st.button("Search Similar Complaints", width="stretch"):
 
     best_match = matches[0]
 
-    # ---------------- THRESHOLD CHECK ---------------- #
-
     if best_match["similarity"] < 70:
 
         st.warning("No suitable resolution found in database.")
         st.stop()
 
-    st.success(f"{len(matches)} Similar Complaints Found")
+    # Save current search
+    st.session_state["best_match"] = best_match
+    st.session_state["current_subject"] = complaint
+
+    # Clear previous generated resolution
+    st.session_state.pop("generated_resolution", None)
+
+# ---------------- DISPLAY RESULT ---------------- #
+
+if "best_match" in st.session_state:
+
+    best_match = st.session_state["best_match"]
+
+    st.success("Similar Complaint Found")
 
     st.markdown("---")
 
@@ -55,9 +69,12 @@ if st.button("Search Similar Complaints", width="stretch"):
 
     with c2:
 
-        st.metric("Similarity", f"{best_match['similarity']}%")
+        st.metric(
+            "Similarity",
+            f"{best_match['similarity']}%"
+        )
 
-    st.write("**Complaint**")
+    st.write("### Complaint")
 
     st.info(best_match["complaint"])
 
@@ -65,16 +82,39 @@ if st.button("Search Similar Complaints", width="stretch"):
 
         st.text_area(
             "",
-            best_match["conversation"],
+            value=best_match["conversation"],
             height=180,
             disabled=True
         )
 
-    st.write("### 🤖 Suggested Resolution")
+    st.markdown("---")
 
-    st.text_area(
-        "",
-        best_match["ai_resolution"],
-        height=180,
-        disabled=True
-    )
+    if st.button(
+        "🤖 Generate AI Resolution",
+        use_container_width=True
+    ):
+
+        with st.spinner("Generating AI Resolution..."):
+
+            llm = LLMService()
+
+            resolution = llm.generate_resolution(
+                best_match["subject"],
+                st.session_state["current_subject"],
+                best_match["conversation"]
+            )
+            print("="*50)
+            print(resolution)
+            print("="*50)
+
+            st.session_state["generated_resolution"] = resolution
+
+    if "generated_resolution" in st.session_state:
+
+        st.write("### AI Suggested Resolution")
+
+        st.text_area(
+            "",
+            value=st.session_state["generated_resolution"],
+            height=220
+        )

@@ -5,34 +5,17 @@ from config.settings import VALID_SUPPORT_FLAGS
 
 class ResolutionBuilder:
 
-    def build_resolution(self, ticket_no, acknowledgements):
+    def build_resolution(self, ticket_no, ack_groups):
 
         # ---------------- NORMALIZE TICKET ---------------- #
 
         ticket_id = str(ticket_no).split("-")[-1].strip()
 
-        rows = acknowledgements.copy()
+        # ---------------- FAST LOOKUP ---------------- #
 
-        rows["ASNO"] = (
-            rows["ASNO"]
-            .astype(str)
-            .str.strip()
-        )
+        rows = ack_groups.get(ticket_id)
 
-        rows["FLAG"] = (
-            rows["FLAG"]
-            .astype(str)
-            .str.strip()
-            .str.upper()
-        )
-
-        # ---------------- FILTER TICKET ---------------- #
-
-        rows = rows[
-            rows["ASNO"] == ticket_id
-        ]
-
-        if rows.empty:
+        if rows is None or rows.empty:
             return ""
 
         # ---------------- SORT ---------------- #
@@ -49,13 +32,10 @@ class ResolutionBuilder:
             if remark == "" or remark.lower() == "nan":
                 continue
 
-            flag = row["FLAG"]
-
-            # ---------------- ROLE DETECTION ---------------- #
+            flag = str(row["FLAG"]).strip().upper()
 
             if flag in VALID_SUPPORT_FLAGS:
                 role = "ADMIN"
-
             else:
                 role = "USER"
 

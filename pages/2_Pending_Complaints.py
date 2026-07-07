@@ -3,6 +3,7 @@ import streamlit as st
 from services.database_service import DatabaseService
 from services.semantic_search import SemanticSearch
 from services.ticket_service import TicketService
+from services.llm_service import LLMService
 
 SIMILARITY_THRESHOLD = 70
 
@@ -24,7 +25,6 @@ if pending.empty:
     st.stop()
 
 st.write(f"Total Pending Complaints : {len(pending)}")
-
 
 # ---------------- MAIN LOOP ---------------- #
 
@@ -64,7 +64,6 @@ for index, ticket in pending.iterrows():
         )
 
         if len(matches) == 0:
-
             st.warning("No similar resolved complaint found.")
             continue
 
@@ -91,7 +90,7 @@ for index, ticket in pending.iterrows():
 
         st.info(selected_match["complaint"])
 
-        st.write("### Conversation")
+        st.write("### Previous Conversation")
 
         st.text_area(
             "",
@@ -101,17 +100,15 @@ for index, ticket in pending.iterrows():
             key=f"conv_{ticket['TICKET_NO']}"
         )
 
-        st.write("### Historical Resolution")
+        # ---------------- AI RESOLUTION ---------------- #
 
-        st.success(
-            selected_match["ai_resolution"]
+        resolution_key = (
+            f"resolution_"
+            f"{ticket['TICKET_NO']}_"
+            f"{selected_index}"
         )
 
-        st.write("### Resolution To Approve")
-
         if selected_match["similarity"] < SIMILARITY_THRESHOLD:
-
-            resolution = ""
 
             st.warning(
                 f"Best similarity is only {selected_match['similarity']}%."
@@ -123,56 +120,76 @@ for index, ticket in pending.iterrows():
 
         else:
 
-            resolution = st.text_area(
-                "",
-                value=selected_match["ai_resolution"],
-                height=130,
-                key=f"resolution_{ticket['TICKET_NO']}"
-            )
-
-        # ---------------- ACTION BUTTONS ---------------- #
-
-        c1, c2 = st.columns(2)
-
-        with c1:
-
             if st.button(
-                "✅ Approve Resolution",
-                key=f"approve_{ticket['TICKET_NO']}",
+                "🤖 Generate AI Resolution",
+                key=f"gen_{ticket['TICKET_NO']}_{selected_index}",
                 use_container_width=True
             ):
 
-                if resolution.strip() == "":
+                with st.spinner("Generating AI Resolution..."):
 
-                    st.error(
-                        "Resolution cannot be empty."
+                    llm = LLMService()
+
+                    resolution = llm.generate_resolution(
+
+                        ticket["SUBJECT"],
+                        ticket["COMP_BRIEF"],
+                        selected_match["conversation"]
+
                     )
 
-                    st.stop()
+                    st.session_state[resolution_key] = resolution
 
-                try:
+                st.rerun()
 
-                    ticket_service.approve_resolution(
-                        ticket["TICKET_NO"],
-                        resolution
-                    )
+            # ------------ SHOW ONLY AFTER GENERATION ---------------- #
 
-                    st.success(
-                        "Resolution Approved Successfully."
-                    )
+            if resolution_key in st.session_state:
 
-                    st.rerun()
+                resolution = st.text_area(
 
-                except Exception as e:
+                    "Resolution To Approve",
 
-                    st.error(str(e))
+                    value=st.session_state[resolution_key],
 
-        with c2:
+                    height=180,
 
-            if st.button(
-                "❌ Skip",
-                key=f"skip_{ticket['TICKET_NO']}",
-                use_container_width=True
-            ):
+                    key=f"text_{resolution_key}"
 
-                st.info("Skipped.")
+                )
+
+                if st.button(
+
+                    "✅ Approve Resolution",
+
+                    key=f"approve_{ticket['TICKET_NO']}",
+
+                    use_container_width=True
+
+                ):
+
+                    if resolution.strip() == "":
+
+                        st.error("Resolution cannot be empty.")
+
+                    else:
+
+                        try:
+
+                            ticket_service.approve_resolution(
+
+                                ticket["TICKET_NO"],
+
+                                resolution
+
+                            )
+
+                            st.success(
+                                "Resolution Approved Successfully."
+                            )
+
+                            st.rerun()
+
+                        except Exception as e:
+
+                            st.error(str(e))
