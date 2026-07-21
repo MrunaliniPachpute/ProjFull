@@ -11,45 +11,29 @@ class LLMService:
 
     def generate_resolution(self, subject, complaint, conversation):
 
-        system_prompt = """
-You are an experienced DRDO IT Helpdesk Engineer.
-
-A previously resolved complaint is provided.
-
-Your task is to generate a RECOMMENDED ACTION for resolving a NEW complaint that is similar.
-
-Use ONLY the ADMIN actions present in the conversation.
-
-Rules:
-- Recommend what the support engineer should do.
-- Do NOT summarize the old ticket.
-- Do NOT describe what already happened.
-- Do NOT mention the previous user.
-- Do NOT say "issue resolved", "resolved successfully", or similar.
-- Do NOT invent any actions/information not present in the conversation.
-- Use action-oriented language such as:
-  Repair...
-  Reset...
-  Restart...
-  Reinstall...
-  Update...
-  Verify...
-  Configure...
-  Clear...
-  Replace...
-- If multiple actions were performed, combine them into one concise recommendation.
-- Maximum 4 short sentences.
-- One sentence only.
-- No bullet points.
-- No markdown.
-- No prefixes.
-
-If there is not enough information to recommend an action, reply exactly:
-
-Recommendation not available.
-"""
+        system_prompt = """You are an ERP Helpdesk Resolution Assistant. A previous support ticket has been retrieved using semantic search. Your job is to generate ONLY the recommended action that should be performed for a similar issue.
+        Strict Rules:
+            1. Use ONLY the information present in the conversation.
+            2. Never use external knowledge.
+            3. Never guess missing information.
+            4. Never expand abbreviations or acronyms.
+            5. Never invent commands, software names, or procedures.
+            6. If an abbreviation appears (e.g., PH, SC, ERP), copy it exactly as written. Never expand or reinterpret it.
+            7. Ignore greetings and acknowledgements.
+            8. Extract ONLY the administrator's troubleshooting actions that directly resolved the issue. Ignore all user messages unless they provide essential context.
+            9. Rewrite those actions as a recommendation for a support engineer.
+            10. If multiple actions exist, combine them into one concise recommendation.
+            11. Output exactly ONE sentence.
+            12. No numbering.
+            13. No markdown.
+            14. No explanations.
+            15. No prefixes like "Recommendation:".
+            16. If no clear action exists, reply exactly: Recommendation not available. """
 
         user_prompt = f"""
+Subject:
+{subject}
+
 Complaint:
 {complaint}
 
@@ -60,25 +44,23 @@ Previous Resolved Conversation:
         try:
 
             response = ollama.chat(
-
                 model=self.model,
-
                 messages=[
-                    {
-                        "role": "system",
-                        "content": system_prompt
-                    },
-                    {
-                        "role": "user",
-                        "content": user_prompt
-                    }
-                ]
-
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                options={
+                    "temperature": 0,
+                    "top_p": 0.1,
+                    "repeat_penalty": 1.15,
+                    "num_predict": 160,
+                    "seed":42,
+                },
             )
-            
-            print("="*80)
+
+            print("=" * 80)
             print(response["message"]["content"])
-            print("="*80)
+            print("=" * 80)
 
             answer = response["message"]["content"].strip()
 
@@ -86,14 +68,14 @@ Previous Resolved Conversation:
                 "Recommendation:",
                 "Suggested Action:",
                 "Recommended Action:",
-                "Answer:"
+                "Answer:",
             ]
 
             for prefix in prefixes:
 
                 if answer.lower().startswith(prefix.lower()):
 
-                    answer = answer[len(prefix):].strip()
+                    answer = answer[len(prefix) :].strip()
 
             answer = " ".join(answer.split())
 
@@ -101,14 +83,11 @@ Previous Resolved Conversation:
 
             #     answer = answer[:120].rstrip()
 
-            if answer == "":
-
+            if not answer or len(answer.strip()) == 0:
                 return "Recommendation not available."
 
             return answer
 
         except Exception as e:
-
             print(f"Ollama Error: {e}")
-
             return "Recommendation not available."
